@@ -1,0 +1,162 @@
+[
+  {
+    "id": 1,
+    "employee": "Sarah Johnson",
+    "role": "Senior Manager",
+    "status": "Active",
+    "location": "New York, NY",
+    "timeToday": "8:30 AM"
+  },
+  {
+    "id": 2,
+    "employee": "Michael Chen",
+    "role": "Developer",
+    "status": "Active",
+    "location": "San Francisco, CA",
+    "timeToday": "9:15 AM"
+  },
+  {
+    "id": 3,
+    "employee": "Emma Rodriguez",
+    "role": "Designer",
+    "status": "In Meeting",
+    "location": "Austin, TX",
+    "timeToday": "10:00 AM"
+  },
+  {
+    "id": 4,
+    "employee": "James Wilson",
+    "role": "Analyst",
+    "status": "Active",
+    "location": "Chicago, IL",
+    "timeToday": "8:45 AM"
+  },
+  {
+    "id": 5,
+    "employee": "Lisa Anderson",
+    "role": "Project Manager",
+    "status": "Away",
+    "location": "Boston, MA",
+    "timeToday": "11:30 AM"
+  },
+  {
+    "id": 6,
+    "employee": "David Brown",
+    "role": "Backend Engineer",
+    "status": "Active",
+    "location": "Seattle, WA",
+    "timeToday": "6:20 AM"
+  },
+  {
+    "id": 7,
+    "employee": "Jennifer Lee",
+    "role": "QA Engineer",
+    "status": "Active",
+    "location": "Denver, CO",
+    "timeToday": "9:00 AM"
+  },
+  {
+    "id": 8,
+    "employee": "Robert Martinez",
+    "role": "HR Specialist",
+    "status": "Active",
+    "location": "Miami, FL",
+    "timeToday": "10:15 AM"
+  },
+  {
+    "id": 9,
+    "employee": "Patricia Thompson",
+    "role": "Marketing Manager",
+    "status": "In Meeting",
+    "location": "Los Angeles, CA",
+    "timeToday": "7:45 AM"
+  },
+  {
+    "id": 10,
+    "employee": "Christopher Garcia",
+    "role": "Frontend Engineer",
+    "status": "Active",
+    "location": "Philadelphia, PA",
+    "timeToday": "10:30 AM"
+  },
+  {
+    "id": 11,
+    "employee": "Amanda Williams",
+    "role": "Product Owner",
+    "status": "Away",
+    "location": "Dallas, TX",
+    "timeToday": "8:00 AM"
+  },
+  {
+    "id": 12,
+    "employee": "Kevin White",
+    "role": "Database Admin",
+    "status": "Active",
+    "location": "Toronto, ON",
+    "timeToday": "10:45 AM"
+  },
+  {
+    "id": 13,
+    "employee": "Rebecca Taylor",
+    "role": "UX Designer",
+    "status": "In Meeting",
+    "location": "Portland, OR",
+    "timeToday": "6:50 AM"
+  },
+  {
+    "id": 14,
+    "employee": "Daniel Martinez",
+    "role": "DevOps Engineer",
+    "status": "Active",
+    "location": "Washington, DC",
+    "timeToday": "9:30 AM"
+  },
+  {
+    "id": 15,
+    "employee": "Sophie Johnson",
+    "role": "Data Scientist",
+    "status": "Active",
+    "location": "Boston, MA",
+    "timeToday": "9:45 AM"
+  },
+  {
+    "id": 16,
+    "employee": "Marcus Thompson",
+    "role": "Scrum Master",
+    "status": "Away",
+    "location": "Atlanta, GA",
+    "timeToday": "8:15 AM"
+  },
+  {
+    "id": 17,
+    "employee": "Victoria Brown",
+    "role": "Business Analyst",
+    "status": "Active",
+    "location": "Houston, TX",
+    "timeToday": "8:30 AM"
+  },
+  {
+    "id": 18,
+    "employee": "Alexander Kim",
+    "role": "Tech Lead",
+    "status": "In Meeting",
+    "location": "San Jose, CA",
+    "timeToday": "8:00 AM"
+  },
+  {
+    "id": 19,
+    "employee": "Grace Rodriguez",
+    "role": "Support Manager",
+    "status": "Active",
+    "location": "Phoenix, AZ",
+    "timeToday": "7:30 AM"
+  },
+  {
+    "id": 20,
+    "employee": "Nathan Peterson",
+    "role": "Security Engineer",
+    "status": "Active",
+    "location": "Portland, ME",
+    "timeToday": "10:00 AM"
+  }
+]
