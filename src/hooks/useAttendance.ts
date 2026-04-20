@@ -4,13 +4,15 @@ import {
   logOutAttendance,
   getAttendanceStatus,
 } from "@/lib/api/attendance";
+import type { WorkLocation } from "@/lib/validation/attendance";
 
 // ============= LOG IN MUTATION =============
 export const useLogIn = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: logInAttendance,
+    mutationFn: (workLocation?: WorkLocation) =>
+      logInAttendance(workLocation),
     onSuccess: () => {
       // Invalidate attendance status query
       queryClient.invalidateQueries({ queryKey: ["attendance-status"] });

@@ -32,88 +32,129 @@ import {
   CalendarIcon,
   Save,
   RotateCcw,
+  Loader2,
+  AlertCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useCreateTask, useTasksList, useStaffMembers } from "@/hooks/useTasks";
+import { useClients } from "@/hooks/useClients";
+import { createTaskSchema } from "@/lib/validation/task";
+import type { TaskPriority, TaskType, TaskStatus } from "@/lib/validation/task";
+import { toast } from "sonner";
 
 interface NewTaskModalProps {
   open: boolean;
   onClose: () => void;
 }
 
-const clients = [
-  "ABC Enterprises Pvt. Ltd.",
-  "XYZ Solutions LLP",
-  "Sharma & Associates",
-  "Global Tech India Pvt. Ltd.",
-  "Patel Industries",
-  "Sunrise Trading Co.",
-  "Mehta Financial Services",
-  "Gupta Constructions",
+const priorities: { value: TaskPriority; label: string; color: string }[] = [
+  { value: "URGENT", label: "Urgent", color: "bg-red-600" },
+  { value: "HIGH", label: "High", color: "bg-red-500" },
+  { value: "MEDIUM", label: "Medium", color: "bg-yellow-500" },
+  { value: "LOW", label: "Low", color: "bg-green-500" },
 ];
 
-const assignees = [
-  "CA Rajesh Kumar",
-  "CA Priya Sharma",
-  "CA Amit Patel",
-  "CA Sneha Gupta",
-  "CA Vikram Singh",
-  "CA Deepa Nair",
-  "CA Arjun Mehta",
-  "CA Kavita Joshi",
+const statuses: { value: TaskStatus; label: string }[] = [
+  { value: "UNASSIGNED", label: "Unassigned" },
+  { value: "IN_PROGRESS", label: "In Progress" },
+  { value: "IN_REVIEW", label: "In Review" },
+  { value: "COMPLETED", label: "Completed" },
+  { value: "BLOCKED", label: "Blocked" },
 ];
 
-const taskTypes = [
-  "ITR Filing",
-  "GST Return",
-  "TDS Return",
-  "Audit",
-  "Bookkeeping",
-  "Company Registration",
-  "ROC Filing",
-  "Consultation",
-  "Tax Planning",
-  "Other",
-];
-
-const priorities = [
-  { value: "high", label: "High" },
-  { value: "medium", label: "Medium" },
-  { value: "low", label: "Low" },
+const taskTypes: { value: TaskType; label: string }[] = [
+  { value: "BILLABLE", label: "Billable" },
+  { value: "NON_BILLABLE", label: "Non-Billable" },
 ];
 
 export function NewTask({ open, onClose }: NewTaskModalProps) {
-  const [formData, setFormData] = useState({
-    taskTitle: "",
-    description: "",
-    client: "",
-    assignedTo: "",
-    taskType: "",
-    priority: "",
-  });
+  const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
+  const [client, setClient] = useState<string>("");
+  const [assignedTo, setAssignedTo] = useState<string>("");
+  const [priority, setPriority] = useState<TaskPriority>("MEDIUM");
+  const [status, setStatus] = useState<TaskStatus>("UNASSIGNED");
+  const [type, setType] = useState<TaskType>("BILLABLE");
   const [dueDate, setDueDate] = useState<Date | undefined>(undefined);
+  const [parentTask, setParentTask] = useState<string>("");
+  const [errors, setErrors] = useState<Record<string, string>>({});
+
+  const createTaskMutation = useCreateTask();
+  const { data: staffMembers = [], isLoading: staffLoading } = useStaffMembers();
+  const { data: clientsList = [], isLoading: clientsLoading } = useClients();
+  const { data: rawTasks, isLoading: tasksLoading } = useTasksList();
 
   if (!open) return null;
 
-  const handleInputChange = (field: string, value: string) => {
-    setFormData((prev) => ({ ...prev, [field]: value }));
-  };
-
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    console.log("Task submitted:", { ...formData, dueDate });
-    onClose();
+    setErrors({});
+
+    // Get created_by from localStorage
+    const storedUser = localStorage.getItem("user");
+    let createdBy: number | undefined;
+    if (storedUser) {
+      try {
+        const user = JSON.parse(storedUser);
+        createdBy = user.id;
+      } catch {
+        // Ignore parse errors
+      }
+    }
+
+    const payload = {
+      title,
+      description,
+      client: client ? Number(client) : 0,
+      assigned_to: assignedTo ? Number(assignedTo) : 0,
+      deadline: dueDate ? dueDate.toISOString() : "",
+      status,
+      type,
+      priority,
+      ...(parentTask && { parent: Number(parentTask) }),
+      ...(createdBy && { created_by: createdBy }),
+    };
+
+    // Validate with Zod schema
+    const result = createTaskSchema.safeParse(payload);
+    if (!result.success) {
+      const fieldErrors: Record<string, string> = {};
+      (result.error.issues ?? []).forEach((err: any) => {
+        const field = err.path?.[0]?.toString() || "form";
+        fieldErrors[field] = err.message;
+      });
+      setErrors(fieldErrors);
+      toast.error("Please fix the validation errors");
+      return;
+    }
+
+    createTaskMutation.mutate(result.data, {
+      onSuccess: () => {
+        toast.success("Task created successfully", {
+          description: `"${title}" has been added.`,
+        });
+        handleReset();
+        onClose();
+      },
+      onError: (error: any) => {
+        toast.error("Failed to create task", {
+          description: error?.message || "Something went wrong",
+        });
+      },
+    });
   };
 
   const handleReset = () => {
-    setFormData({
-      taskTitle: "",
-      description: "",
-      client: "",
-      assignedTo: "",
-      taskType: "",
-      priority: "",
-    });
+    setTitle("");
+    setDescription("");
+    setClient("");
+    setAssignedTo("");
+    setPriority("MEDIUM");
+    setStatus("UNASSIGNED");
+    setType("BILLABLE");
     setDueDate(undefined);
+    setParentTask("");
+    setErrors({});
   };
 
   return (
@@ -168,14 +209,17 @@ export function NewTask({ open, onClose }: NewTaskModalProps) {
                   </Label>
                   <Input
                     id="taskTitle"
-                    placeholder="e.g. Q4 ITR Filing for ABC Enterprises"
-                    value={formData.taskTitle}
-                    onChange={(e) =>
-                      handleInputChange("taskTitle", e.target.value)
-                    }
-                    className="h-10"
-                    required
+                    placeholder="e.g. Create Q2 GST reports"
+                    value={title}
+                    onChange={(e) => setTitle(e.target.value)}
+                    className={cn("h-10", errors.title && "border-destructive")}
                   />
+                  {errors.title && (
+                    <p className="text-xs text-destructive flex items-center gap-1">
+                      <AlertCircle className="h-3 w-3" />
+                      {errors.title}
+                    </p>
+                  )}
                 </div>
 
                 {/* Description */}
@@ -184,13 +228,35 @@ export function NewTask({ open, onClose }: NewTaskModalProps) {
                   <Textarea
                     id="description"
                     placeholder="Provide a detailed description of the task..."
-                    value={formData.description}
-                    onChange={(e) =>
-                      handleInputChange("description", e.target.value)
-                    }
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
                     rows={3}
                     className="resize-none"
                   />
+                </div>
+
+                {/* Parent Task */}
+                <div className="space-y-2 md:col-span-2">
+                  <Label htmlFor="parentTask">Parent Task (Optional)</Label>
+                  <Select
+                    value={parentTask}
+                    onValueChange={(value) => setParentTask(value)}
+                  >
+                    <SelectTrigger id="parentTask" className="h-10 w-full">
+                      <SelectValue
+                        placeholder={
+                          tasksLoading ? "Loading tasks..." : "Select a parent task (if subtask)"
+                        }
+                      />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {rawTasks?.results?.map((t) => (
+                        <SelectItem key={t.id} value={String(t.id)}>
+                          {t.title}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
 
                 {/* Client */}
@@ -199,23 +265,36 @@ export function NewTask({ open, onClose }: NewTaskModalProps) {
                     Client <span className="text-destructive">*</span>
                   </Label>
                   <Select
-                    value={formData.client}
-                    onValueChange={(value) =>
-                      handleInputChange("client", value)
-                    }
-                    required
+                    value={client}
+                    onValueChange={(value) => setClient(value)}
                   >
-                    <SelectTrigger id="client" className="h-10 w-full">
-                      <SelectValue placeholder="Select a client" />
+                    <SelectTrigger
+                      id="client"
+                      className={cn(
+                        "h-10 w-full",
+                        errors.client && "border-destructive",
+                      )}
+                    >
+                      <SelectValue
+                        placeholder={
+                          clientsLoading ? "Loading clients..." : "Select a client"
+                        }
+                      />
                     </SelectTrigger>
                     <SelectContent>
-                      {clients.map((client) => (
-                        <SelectItem key={client} value={client}>
-                          {client}
+                      {clientsList.map((c) => (
+                        <SelectItem key={c.id} value={String(c.id)}>
+                          {c.businessName}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
+                  {errors.client && (
+                    <p className="text-xs text-destructive flex items-center gap-1">
+                      <AlertCircle className="h-3 w-3" />
+                      {errors.client}
+                    </p>
+                  )}
                 </div>
 
                 {/* Task Type */}
@@ -224,19 +303,16 @@ export function NewTask({ open, onClose }: NewTaskModalProps) {
                     Task Type <span className="text-destructive">*</span>
                   </Label>
                   <Select
-                    value={formData.taskType}
-                    onValueChange={(value) =>
-                      handleInputChange("taskType", value)
-                    }
-                    required
+                    value={type}
+                    onValueChange={(value) => setType(value as TaskType)}
                   >
                     <SelectTrigger id="taskType" className="h-10 w-full">
                       <SelectValue placeholder="Select task type" />
                     </SelectTrigger>
                     <SelectContent>
-                      {taskTypes.map((type) => (
-                        <SelectItem key={type} value={type}>
-                          {type}
+                      {taskTypes.map((t) => (
+                        <SelectItem key={t.value} value={t.value}>
+                          {t.label}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -260,23 +336,43 @@ export function NewTask({ open, onClose }: NewTaskModalProps) {
                     Assigned To <span className="text-destructive">*</span>
                   </Label>
                   <Select
-                    value={formData.assignedTo}
-                    onValueChange={(value) =>
-                      handleInputChange("assignedTo", value)
-                    }
-                    required
+                    value={assignedTo}
+                    onValueChange={(value) => setAssignedTo(value)}
                   >
-                    <SelectTrigger id="assignedTo" className="h-10 w-full">
-                      <SelectValue placeholder="Select team member" />
+                    <SelectTrigger
+                      id="assignedTo"
+                      className={cn(
+                        "h-10 w-full",
+                        errors.assigned_to && "border-destructive",
+                      )}
+                    >
+                      <SelectValue
+                        placeholder={
+                          staffLoading
+                            ? "Loading staff..."
+                            : "Select team member"
+                        }
+                      />
                     </SelectTrigger>
                     <SelectContent>
-                      {assignees.map((assignee) => (
-                        <SelectItem key={assignee} value={assignee}>
-                          {assignee}
+                      {staffMembers.map((member) => (
+                        <SelectItem key={member.id} value={String(member.id)}>
+                          <div className="flex items-center gap-2">
+                            <span>{member.fullName}</span>
+                            <span className="text-xs text-muted-foreground">
+                              ({member.role})
+                            </span>
+                          </div>
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
+                  {errors.assigned_to && (
+                    <p className="text-xs text-destructive flex items-center gap-1">
+                      <AlertCircle className="h-3 w-3" />
+                      {errors.assigned_to}
+                    </p>
+                  )}
                 </div>
 
                 {/* Priority */}
@@ -285,11 +381,10 @@ export function NewTask({ open, onClose }: NewTaskModalProps) {
                     Priority <span className="text-destructive">*</span>
                   </Label>
                   <Select
-                    value={formData.priority}
+                    value={priority}
                     onValueChange={(value) =>
-                      handleInputChange("priority", value)
+                      setPriority(value as TaskPriority)
                     }
-                    required
                   >
                     <SelectTrigger id="priority" className="h-10 w-full">
                       <SelectValue placeholder="Select priority" />
@@ -301,9 +396,7 @@ export function NewTask({ open, onClose }: NewTaskModalProps) {
                             <span
                               className={cn(
                                 "inline-block h-2 w-2 rounded-full",
-                                p.value === "high" && "bg-red-500",
-                                p.value === "medium" && "bg-yellow-500",
-                                p.value === "low" && "bg-green-500",
+                                p.color,
                               )}
                             />
                             {p.label}
@@ -314,10 +407,30 @@ export function NewTask({ open, onClose }: NewTaskModalProps) {
                   </Select>
                 </div>
 
+                {/* Status */}
+                <div className="space-y-2">
+                  <Label htmlFor="status">Status</Label>
+                  <Select
+                    value={status}
+                    onValueChange={(value) => setStatus(value as TaskStatus)}
+                  >
+                    <SelectTrigger id="status" className="h-10 w-full">
+                      <SelectValue placeholder="Select status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {statuses.map((s) => (
+                        <SelectItem key={s.value} value={s.value}>
+                          {s.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
                 {/* Due Date */}
                 <div className="space-y-2">
                   <Label>
-                    Due Date <span className="text-destructive">*</span>
+                    Deadline <span className="text-destructive">*</span>
                   </Label>
                   <Popover>
                     <PopoverTrigger asChild>
@@ -326,6 +439,7 @@ export function NewTask({ open, onClose }: NewTaskModalProps) {
                         className={cn(
                           "h-10 w-full justify-start text-left font-normal",
                           !dueDate && "text-muted-foreground",
+                          errors.deadline && "border-destructive",
                         )}
                       >
                         <CalendarIcon className="mr-2 h-4 w-4" />
@@ -337,10 +451,18 @@ export function NewTask({ open, onClose }: NewTaskModalProps) {
                         mode="single"
                         selected={dueDate}
                         onSelect={setDueDate}
-                        disabled={(date) => date < new Date()}
+                        disabled={(date) =>
+                          date < new Date(new Date().setHours(0, 0, 0, 0))
+                        }
                       />
                     </PopoverContent>
                   </Popover>
+                  {errors.deadline && (
+                    <p className="text-xs text-destructive flex items-center gap-1">
+                      <AlertCircle className="h-3 w-3" />
+                      {errors.deadline}
+                    </p>
+                  )}
                 </div>
               </div>
             </div>
@@ -353,13 +475,27 @@ export function NewTask({ open, onClose }: NewTaskModalProps) {
                 variant="outline"
                 onClick={handleReset}
                 className="gap-2"
+                disabled={createTaskMutation.isPending}
               >
                 <RotateCcw className="h-4 w-4" />
                 Reset
               </Button>
-              <Button type="submit" className="gap-2">
-                <Save className="h-4 w-4" />
-                Create Task
+              <Button
+                type="submit"
+                className="gap-2"
+                disabled={createTaskMutation.isPending}
+              >
+                {createTaskMutation.isPending ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Creating...
+                  </>
+                ) : (
+                  <>
+                    <Save className="h-4 w-4" />
+                    Create Task
+                  </>
+                )}
               </Button>
             </div>
           </form>

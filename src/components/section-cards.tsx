@@ -6,12 +6,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import {
-  Users,
-  Clock,
-  Building2,
-  CheckCircle2,
-} from "lucide-react";
 
 export function SectionCards({ data }: { data: Array<{ icon: any; title: string; value: string; description: string; isPositive: boolean }> }) {
 

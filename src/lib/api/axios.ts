@@ -9,7 +9,6 @@ export const api = axios.create({
   },
 });
 
-// ============= REQUEST INTERCEPTOR =============
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem("accessToken");
 
@@ -20,11 +19,9 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
-// ============= RESPONSE INTERCEPTOR =============
 api.interceptors.response.use(
   (response) => response,
   (error: AxiosError) => {
-    // Handle 401 Unauthorized - redirect to login
     if (error.response?.status === 401) {
       localStorage.removeItem("accessToken");
       localStorage.removeItem("refreshToken");

@@ -1,9 +1,10 @@
 import { api } from "./axios";
-import { clientListSchema, clientSchema, type CreateClientInput } from "@/lib/validation/client";
+import {
+  clientListSchema,
+  clientSchema,
+  type CreateClientInput,
+} from "@/lib/validation/client";
 
-// ===================== Client Types =====================
-
-/** Frontend-friendly assigned-to model */
 export interface AssignedToDetail {
   id: number;
   fullName: string;
@@ -11,7 +12,6 @@ export interface AssignedToDetail {
   role: string;
 }
 
-/** Frontend-friendly client model */
 export interface Client {
   id: number;
   businessName: string;
@@ -54,7 +54,9 @@ export const getClients = async (): Promise<Client[]> => {
 };
 
 /** Creates a new client via POST and returns the mapped result */
-export const createClient = async (input: CreateClientInput): Promise<Client> => {
+export const createClient = async (
+  input: CreateClientInput,
+): Promise<Client> => {
   // Clean payload: backend fails with 400 if we send empty strings for optional tax/document fields
   const payload = {
     ...input,
@@ -76,7 +78,10 @@ export const getClient = async (id: string | number): Promise<Client> => {
 };
 
 /** Updates an existing client via PATCH and returns the mapped result */
-export const updateClient = async (id: string | number, input: CreateClientInput): Promise<Client> => {
+export const updateClient = async (
+  id: string | number,
+  input: CreateClientInput,
+): Promise<Client> => {
   const payload = {
     ...input,
     pan: input.pan || undefined,

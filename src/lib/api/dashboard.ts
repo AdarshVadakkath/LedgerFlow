@@ -1,8 +1,5 @@
 import { api } from "./axios";
 
-// ===================== Dashboard Summary =====================
-
-/** Raw shape returned by GET /dashboard/summary/ */
 interface DashboardSummaryRaw {
   kpis: {
     total_staff: number;
@@ -21,7 +18,6 @@ interface DashboardSummaryRaw {
   };
 }
 
-/** Frontend-friendly KPI model */
 export interface DashboardKpis {
   totalStaff: number;
   workingNow: number;
@@ -29,7 +25,6 @@ export interface DashboardKpis {
   openTasks: number;
 }
 
-/** Frontend-friendly task summary model */
 export interface TaskSummary {
   unassigned: number;
   inProgress: number;
@@ -40,13 +35,11 @@ export interface TaskSummary {
   dueToday: number;
 }
 
-/** Combined dashboard summary for UI consumption */
 export interface DashboardSummary {
   kpis: DashboardKpis;
   taskSummary: TaskSummary;
 }
 
-/** Map raw API response → frontend model */
 const mapDashboardSummary = (raw: DashboardSummaryRaw): DashboardSummary => ({
   kpis: {
     totalStaff: raw.kpis.total_staff,
@@ -65,15 +58,11 @@ const mapDashboardSummary = (raw: DashboardSummaryRaw): DashboardSummary => ({
   },
 });
 
-/** Fetches dashboard summary and returns mapped, typed data */
 export const getDashboardSummary = async (): Promise<DashboardSummary> => {
   const { data } = await api.get<DashboardSummaryRaw>("/dashboard/summary/");
   return mapDashboardSummary(data);
 };
 
-// ===================== Staff Activity =====================
-
-/** Raw shape returned by GET /dashboard/staff-activity */
 interface StaffActivityRaw {
   id: number;
   full_name: string | null;
@@ -90,7 +79,6 @@ interface StaffActivityApiResponse {
   results: StaffActivityRaw[];
 }
 
-/** Frontend-friendly, camelCase model */
 export interface StaffActivity {
   id: number;
   fullName: string;
@@ -101,7 +89,6 @@ export interface StaffActivity {
   totalSecondsToday: number;
 }
 
-/** Map a single raw record → frontend model */
 const mapStaffActivity = (raw: StaffActivityRaw): StaffActivity => ({
   id: raw.id,
   fullName: raw.full_name ?? "Unknown",
@@ -112,7 +99,6 @@ const mapStaffActivity = (raw: StaffActivityRaw): StaffActivity => ({
   totalSecondsToday: raw.total_seconds_today,
 });
 
-/** Fetches staff-activity list and returns mapped, typed results */
 export const getStaffActivity = async (): Promise<StaffActivity[]> => {
   const { data } = await api.get<StaffActivityApiResponse>(
     "/dashboard/staff-activity/",

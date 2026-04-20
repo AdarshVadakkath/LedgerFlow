@@ -118,7 +118,7 @@ export const AttendanceExample = () => {
 
   const handleLogIn = async () => {
     try {
-      await logInMutation.mutateAsync();
+      await logInMutation.mutateAsync(undefined as any);
       console.log("Logged in successfully");
     } catch (error: any) {
       console.error("Log in error:", error.message);
@@ -127,7 +127,7 @@ export const AttendanceExample = () => {
 
   const handleLogOut = async () => {
     try {
-      await logOutMutation.mutateAsync();
+      await logOutMutation.mutateAsync(undefined as any);
       console.log("Logged out successfully");
     } catch (error: any) {
       console.error("Log out error:", error.message);

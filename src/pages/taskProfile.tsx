@@ -1,4 +1,14 @@
 import { useState } from "react";
+import { 
+  useCreateSubtask, 
+  useCreateComment, 
+  useGetComments, 
+  useUpdateComment, 
+  useDeleteComment, 
+  useReplyToComment 
+} from "@/hooks/useTasks";
+import { createSubtaskSchema, createCommentSchema } from "@/lib/validation/task";
+import { toast } from "sonner";
 import { useParams, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,7 +18,6 @@ import {
   CardContent,
   CardHeader,
   CardTitle,
-  CardDescription,
   CardFooter,
 } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
@@ -24,7 +33,16 @@ import {
   User,
   Clock,
   ListChecks,
+  MoreVertical,
+  Edit2,
+  Trash2,
 } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 // Mock data matching tasks.tsx
 const fakeTasks = [
@@ -55,6 +73,14 @@ const fakeTasks = [
 export default function TaskProfile() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const taskId = Number(id?.replace("TASK-", "")) || 1;
+
+  const createSubtaskMutation = useCreateSubtask();
+  const createCommentMutation = useCreateComment();
+  const updateCommentMutation = useUpdateComment();
+  const deleteCommentMutation = useDeleteComment();
+  const replyToCommentMutation = useReplyToComment();
+  const { data: fetchedCommentsData } = useGetComments(taskId);
 
   // Find task or fallback to mock
   const task = fakeTasks.find((t) => t.id === id) || {
@@ -78,31 +104,146 @@ export default function TaskProfile() {
   const [newSubtask, setNewSubtask] = useState("");
 
   // Comments State
-  const [comments, setComments] = useState([
-    { id: 1, author: "CA Rajesh Kumar", time: "2 hours ago", text: "Client has sent the missing invoices. I will start the review." },
-    { id: 2, author: "Admin", time: "1 day ago", text: "Please expedite this, it's high priority." },
-  ]);
   const [newComment, setNewComment] = useState("");
+  const [editingCommentId, setEditingCommentId] = useState<number | null>(null);
+  const [editCommentText, setEditCommentText] = useState("");
+  const [replyingToCommentId, setReplyingToCommentId] = useState<number | null>(null);
+
+  const comments = (Array.isArray(fetchedCommentsData) 
+    ? fetchedCommentsData 
+    : fetchedCommentsData?.results || []
+  ).map((c: any) => ({
+    id: c.id,
+    author: c.author?.first_name ? `${c.author.first_name} ${c.author.last_name || ''}` : `User ${c.author?.id || c.created_by || 'Unknown'}`,
+    time: c.created_at ? new Date(c.created_at).toLocaleString() : "Just now",
+    text: c.body,
+  }));
 
   const handleAddSubtask = () => {
     if (!newSubtask.trim()) return;
-    setSubtasks([...subtasks, { id: Date.now(), title: newSubtask, completed: false }]);
-    setNewSubtask("");
+
+    // Get current user id from localStorage
+    const storedUser = localStorage.getItem("user");
+    let createdBy: number | undefined;
+    if (storedUser) {
+      try {
+        createdBy = JSON.parse(storedUser).id;
+      } catch {}
+    }
+
+    // Parse task ID from URL param
+    const parentId = Number(id?.replace("TASK-", "")) || 1;
+
+    // Build subtask payload
+    const payload = {
+      title: newSubtask,
+      description: "",
+      client: 1, // Inherit from parent in a real scenario
+      assigned_to: 1, // Inherit from parent in a real scenario
+      parent: parentId,
+      deadline: new Date().toISOString(),
+      status: "UNASSIGNED" as const,
+      type: "BILLABLE" as const,
+      priority: "MEDIUM" as const,
+      ...(createdBy && { created_by: createdBy }),
+    };
+
+    const result = createSubtaskSchema.safeParse(payload);
+    if (!result.success) {
+      toast.error("Validation failed", {
+        description: (result.error.issues)?.[0]?.message || "Invalid subtask data",
+      });
+      return;
+    }
+
+    createSubtaskMutation.mutate(
+      { parentId: taskId, input: result.data },
+      {
+        onSuccess: () => {
+          setSubtasks([...subtasks, { id: Date.now(), title: newSubtask, completed: false }]);
+          setNewSubtask("");
+          toast.success("Subtask created", {
+            description: `"${newSubtask}" added successfully.`,
+          });
+        },
+        onError: (error: any) => {
+          setSubtasks([...subtasks, { id: Date.now(), title: newSubtask, completed: false }]);
+          setNewSubtask("");
+          toast.error("API error, added locally", {
+            description: error?.message || "Failed to sync with server",
+          });
+        },
+      },
+    );
   };
 
-  const handleToggleSubtask = (id: number) => {
+  const handleToggleSubtask = (st_id: number) => {
     setSubtasks(
-      subtasks.map((st) => (st.id === id ? { ...st, completed: !st.completed } : st))
+      subtasks.map((st) => (st.id === st_id ? { ...st, completed: !st.completed } : st))
     );
   };
 
   const handleAddComment = () => {
     if (!newComment.trim()) return;
-    setComments([
-      ...comments,
-      { id: Date.now(), author: "You", time: "Just now", text: newComment },
-    ]);
-    setNewComment("");
+
+    const result = createCommentSchema.safeParse({ body: newComment });
+    if (!result.success) {
+      toast.error("Invalid comment");
+      return;
+    }
+
+    if (replyingToCommentId) {
+      replyToCommentMutation.mutate(
+        { taskId, commentId: replyingToCommentId, input: result.data },
+        {
+          onSuccess: () => {
+            setNewComment("");
+            setReplyingToCommentId(null);
+            toast.success("Reply added");
+          },
+          onError: () => toast.error("Failed to add reply")
+        }
+      );
+    } else {
+      createCommentMutation.mutate(
+        { taskId, input: result.data },
+        {
+          onSuccess: () => {
+            setNewComment("");
+            toast.success("Comment added");
+          },
+          onError: () => toast.error("Failed to add comment", { description: "You might be offline." })
+        }
+      );
+    }
+  };
+
+  const handleDeleteComment = (commentId: number) => {
+    deleteCommentMutation.mutate({ taskId, commentId }, {
+      onSuccess: () => toast.success("Comment deleted"),
+      onError: () => toast.error("Failed to delete comment")
+    });
+  };
+
+  const startEditComment = (commentId: number, text: string) => {
+    setEditingCommentId(commentId);
+    setEditCommentText(text);
+  };
+
+  const handleSaveEditComment = () => {
+    if (!editCommentText.trim() || !editingCommentId) return;
+
+    updateCommentMutation.mutate(
+      { taskId, commentId: editingCommentId, input: { body: editCommentText } },
+      {
+        onSuccess: () => {
+          setEditingCommentId(null);
+          setEditCommentText("");
+          toast.success("Comment updated");
+        },
+        onError: () => toast.error("Failed to update comment")
+      }
+    );
   };
 
   const priorityColor: Record<string, string> = {
@@ -258,27 +399,84 @@ export default function TaskProfile() {
               </CardTitle>
             </CardHeader>
             <CardContent className="flex-1 overflow-y-auto p-4 space-y-6">
-              {comments.map((comment) => (
-                <div key={comment.id} className="flex gap-3">
+              {comments.map((comment: any) => (
+                <div key={comment.id} className="flex gap-3 group">
                   <div className="h-8 w-8 rounded-full bg-primary/10 flex-shrink-0 flex items-center justify-center font-semibold text-primary text-xs">
                     {comment.author.charAt(0)}
                   </div>
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2">
-                      <span className="font-semibold text-sm">{comment.author}</span>
-                      <span className="text-xs text-muted-foreground flex items-center gap-1">
-                        <Clock className="h-3 w-3" />
-                        {comment.time}
-                      </span>
+                  <div className="space-y-1 flex-1">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold text-sm">{comment.author}</span>
+                        <span className="text-xs text-muted-foreground flex items-center gap-1">
+                          <Clock className="h-3 w-3" />
+                          {comment.time}
+                        </span>
+                      </div>
+                      
+                      <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-6 w-6">
+                              <MoreVertical className="h-4 w-4" />
+                              <span className="sr-only">Comment actions</span>
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => startEditComment(comment.id, comment.text)}>
+                              <Edit2 className="mr-2 h-4 w-4" />
+                              Edit
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleDeleteComment(comment.id)} className="text-destructive focus:text-destructive">
+                              <Trash2 className="mr-2 h-4 w-4" />
+                              Delete
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
                     </div>
+                    {editingCommentId === comment.id ? (
+                      <div className="mt-2 space-y-2">
+                        <Textarea 
+                          value={editCommentText}
+                          onChange={(e) => setEditCommentText(e.target.value)}
+                          className="min-h-[60px] resize-none text-sm"
+                        />
+                        <div className="flex justify-end gap-2">
+                          <Button variant="outline" size="sm" onClick={() => setEditingCommentId(null)}>Cancel</Button>
+                          <Button size="sm" onClick={handleSaveEditComment} disabled={!editCommentText.trim()}>Save</Button>
+                        </div>
+                      </div>
+                    ) : (
                     <div className="text-sm text-foreground bg-muted p-3 rounded-lg rounded-tl-none">
-                      {comment.text}
+                        {comment.text}
+                      </div>
+                    )}
+                    <div className="mt-1 flex items-center gap-2">
+                       <Button 
+                          variant="link" 
+                          className="h-auto p-0 text-xs text-muted-foreground" 
+                          onClick={() => setReplyingToCommentId(comment.id)}
+                       >
+                         Reply
+                       </Button>
                     </div>
                   </div>
                 </div>
               ))}
+              {comments.length === 0 && (
+                <div className="text-center text-sm text-muted-foreground p-4">
+                  No comments yet. Be the first to start the conversation!
+                </div>
+              )}
             </CardContent>
-            <CardFooter className="border-t p-4 pb-4">
+            <CardFooter className="flex-col border-t p-4 pb-4 items-stretch gap-2">
+              {replyingToCommentId && (
+                <div className="flex items-center justify-between text-xs bg-muted/50 p-2 rounded-t-md">
+                  <span className="text-muted-foreground">Replying to a comment...</span>
+                  <Button variant="ghost" size="sm" onClick={() => setReplyingToCommentId(null)} className="h-4 p-0 px-1">Cancel</Button>
+                </div>
+              )}
               <div className="flex w-full items-end gap-2">
                 <Textarea
                   placeholder="Write a comment..."
@@ -292,7 +490,7 @@ export default function TaskProfile() {
                     }
                   }}
                 />
-                <Button size="icon" onClick={handleAddComment} disabled={!newComment.trim()}>
+                <Button size="icon" onClick={handleAddComment} disabled={!newComment.trim() || createCommentMutation.isPending || replyToCommentMutation.isPending}>
                   <Send className="h-4 w-4" />
                 </Button>
               </div>

@@ -8,11 +8,16 @@ import type {
   LogInResponse,
   LogOutResponse,
   AttendanceStatusResponse,
+  WorkLocation,
 } from "@/lib/validation/attendance";
 
-export const logInAttendance = async (): Promise<LogInResponse> => {
+export const logInAttendance = async (
+  workLocation?: WorkLocation,
+): Promise<LogInResponse> => {
   try {
-    const res = await api.post("/attendance/log-in/");
+    const res = await api.post("/attendance/log-in/", {
+      ...(workLocation && { work_location: workLocation }),
+    });
     const validated = logInResponseSchema.parse(res.data);
     return validated;
   } catch (error: any) {

@@ -23,7 +23,6 @@ import {
   ChevronsRightIcon
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
-import { ViewTask } from "@/pages/viewTask";
 import { EditTask } from "@/pages/editTask";
 
 import {
@@ -54,92 +53,20 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-// Fake Data Definition
-type Task = {
-  id: string;
-  title: string;
-  client: string;
-  assignedTo: string;
-  type: string;
-  priority: "High" | "Medium" | "Low";
-  status: "To Do" | "In Progress" | "Done";
-  dueDate: string;
+import { useTasksList, useStaffMembers } from "@/hooks/useTasks";
+import { useClients } from "@/hooks/useClients";
+import type { TaskResponse } from "@/lib/validation/task";
+import { format } from "date-fns";
+import { Loader2 } from "lucide-react";
+
+
+
+type ExtendedTask = TaskResponse & {
+  clientName: string;
+  assignedToName: string;
 };
 
-const fakeTasks: Task[] = [
-  {
-    id: "TASK-001",
-    title: "Q4 ITR Filing",
-    client: "Acme Corp",
-    assignedTo: "CA Rajesh Kumar",
-    type: "ITR Filing",
-    priority: "High",
-    status: "In Progress",
-    dueDate: "2024-04-15",
-  },
-  {
-    id: "TASK-002",
-    title: "Monthly GST Return",
-    client: "XYZ Solutions",
-    assignedTo: "CA Priya Sharma",
-    type: "GST Return",
-    priority: "Medium",
-    status: "To Do",
-    dueDate: "2024-04-20",
-  },
-  {
-    id: "TASK-003",
-    title: "Annual Audit",
-    client: "Global Tech",
-    assignedTo: "CA Amit Patel",
-    type: "Audit",
-    priority: "High",
-    status: "To Do",
-    dueDate: "2024-05-01",
-  },
-  {
-    id: "TASK-004",
-    title: "Company Registration",
-    client: "New Ventures Inc.",
-    assignedTo: "CA Sneha Gupta",
-    type: "Company Registration",
-    priority: "Low",
-    status: "Done",
-    dueDate: "2024-03-30",
-  },
-  {
-    id: "TASK-005",
-    title: "Tax Planning Session",
-    client: "Sharma Associates",
-    assignedTo: "CA Vikram Singh",
-    type: "Consultation",
-    priority: "Medium",
-    status: "To Do",
-    dueDate: "2024-04-10",
-  },
-  {
-    id: "TASK-006",
-    title: "TDS Return Filing",
-    client: "Patel Industries",
-    assignedTo: "CA Deepa Nair",
-    type: "TDS Return",
-    priority: "High",
-    status: "In Progress",
-    dueDate: "2024-04-05",
-  },
-  {
-    id: "TASK-007",
-    title: "Bookkeeping Review",
-    client: "Sunrise Trading",
-    assignedTo: "CA Arjun Mehta",
-    type: "Bookkeeping",
-    priority: "Low",
-    status: "To Do",
-    dueDate: "2024-04-25",
-  },
-];
-
-const columns: ColumnDef<Task>[] = [
+const columns: ColumnDef<ExtendedTask>[] = [
   {
     accessorKey: "id",
     header: "Task ID",
@@ -158,11 +85,11 @@ const columns: ColumnDef<Task>[] = [
     ),
   },
   {
-    accessorKey: "client",
+    accessorKey: "clientName",
     header: "Client",
   },
   {
-    accessorKey: "assignedTo",
+    accessorKey: "assignedToName",
     header: "Assigned To",
   },
   {
@@ -175,13 +102,14 @@ const columns: ColumnDef<Task>[] = [
     cell: ({ row }) => {
       const priority = row.getValue("priority") as string;
       const colorMap: Record<string, string> = {
-        High: "text-red-500",
-        Medium: "text-yellow-500",
-        Low: "text-green-500",
+        HIGH: "text-red-500",
+        URGENT: "text-red-600",
+        MEDIUM: "text-yellow-500",
+        LOW: "text-green-500",
       };
       return (
-        <span className={`font-semibold ${colorMap[priority] || ""}`}>
-          {priority}
+        <span className={`font-semibold capitalize ${colorMap[priority] || ""}`}>
+          {priority?.toLowerCase()}
         </span>
       );
     },
@@ -192,17 +120,22 @@ const columns: ColumnDef<Task>[] = [
     cell: ({ row }) => {
       const status = row.getValue("status") as string;
       const variant =
-        status === "Done"
+        status === "COMPLETED"
           ? "default"
-          : status === "In Progress"
+          : status === "IN_PROGRESS"
             ? "secondary"
             : "outline";
-      return <Badge variant={variant}>{status}</Badge>;
+      return <Badge variant={variant} className="capitalize">{status?.replace("_", " ")?.toLowerCase()}</Badge>;
     },
   },
   {
-    accessorKey: "dueDate",
+    accessorKey: "deadline",
     header: "Due Date",
+    cell: ({ row }) => {
+      const date = row.getValue("deadline") as string;
+      if (!date) return "-";
+      return format(new Date(date), "MMM dd, yyyy");
+    }
   },
   {
     id: "actions",
@@ -232,7 +165,7 @@ const columns: ColumnDef<Task>[] = [
 
 export function Tasks() {
   const navigate = useNavigate();
-  const [editTaskData, setEditTaskData] = React.useState<Task | null>(null);
+  const [editTaskData, setEditTaskData] = React.useState<ExtendedTask | null>(null);
   const [searchValue, setSearchValue] = React.useState("");
   const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({});
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
@@ -241,8 +174,28 @@ export function Tasks() {
     pageSize: 10,
   });
 
+  const { data: rawTasks, isLoading: isTasksLoading } = useTasksList();
+  const { data: clients = [], isLoading: isClientsLoading } = useClients();
+  const { data: staffMembers = [], isLoading: isStaffLoading } = useStaffMembers();
+
+  // Map IDs to names for the table
+  const mappedTasks: ExtendedTask[] = React.useMemo(() => {
+    if (!rawTasks?.results) return [];
+    
+    return rawTasks.results.map((task) => {
+      const client = clients.find((c) => c.id === task.client);
+      const staff = staffMembers.find((s) => s.id === task.assigned_to);
+
+      return {
+        ...task,
+        clientName: client?.businessName || `Client #${task.client}`,
+        assignedToName: staff?.fullName || `Staff #${task.assigned_to}`,
+      };
+    });
+  }, [rawTasks, clients, staffMembers]);
+
   const table = useReactTable({
-    data: fakeTasks,
+    data: mappedTasks,
     columns,
     state: {
       columnVisibility,
@@ -257,7 +210,7 @@ export function Tasks() {
     getPaginationRowModel: getPaginationRowModel(),
     getSortedRowModel: getSortedRowModel(),
     meta: {
-      onEdit: (task: Task) => setEditTaskData(task),
+      onEdit: (task: ExtendedTask) => setEditTaskData(task),
     },
   });
 
@@ -269,6 +222,14 @@ export function Tasks() {
       table.getColumn("title")?.setFilterValue("");
     }
   };
+
+  if (isTasksLoading || isClientsLoading || isStaffLoading) {
+    return (
+      <div className="flex h-[calc(100vh-4rem)] items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
     <>

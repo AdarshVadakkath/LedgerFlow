@@ -8,7 +8,7 @@ export const useUpdateClient = () => {
   return useMutation({
     mutationFn: ({ id, input }: { id: string | number; input: CreateClientInput }) =>
       updateClient(id, input),
-    onSuccess: (data, variables) => {
+    onSuccess: (_, variables) => {
       // Invalidate both the list and the specific client query
       queryClient.invalidateQueries({ queryKey: ["clients"] });
       queryClient.invalidateQueries({ queryKey: ["client", variables.id.toString()] });
