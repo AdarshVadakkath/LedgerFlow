@@ -89,31 +89,3 @@ export const deleteComment = async (
   const { data } = await api.delete(`/tasks/${taskId}/comments/${commentId}/`);
   return data;
 };
-
-interface StaffMemberRaw {
-  id: number;
-  full_name: string | null;
-  email: string;
-  role: string;
-}
-
-export interface StaffMember {
-  id: number;
-  fullName: string;
-  email: string;
-  role: string;
-}
-
-const mapStaffMember = (raw: StaffMemberRaw): StaffMember => ({
-  id: raw.id,
-  fullName: raw.full_name ?? "Unknown",
-  email: raw.email,
-  role: raw.role,
-});
-
-export const getStaffMembers = async (): Promise<StaffMember[]> => {
-  const { data } = await api.get("/staff/");
-
-  const results = Array.isArray(data) ? data : (data.results ?? []);
-  return results.map(mapStaffMember);
-};

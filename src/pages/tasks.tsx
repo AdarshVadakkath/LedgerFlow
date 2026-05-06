@@ -53,11 +53,12 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-import { useTasksList, useStaffMembers } from "@/hooks/useTasks";
+import { useTasksList } from "@/hooks/useTasks";
 import { useClients } from "@/hooks/useClients";
 import type { TaskResponse } from "@/lib/validation/task";
 import { format } from "date-fns";
-import { Loader2 } from "lucide-react";
+
+import { Skeleton } from "@/components/ui/skeleton";
 
 
 
@@ -176,7 +177,6 @@ export function Tasks() {
 
   const { data: rawTasks, isLoading: isTasksLoading } = useTasksList();
   const { data: clients = [], isLoading: isClientsLoading } = useClients();
-  const { data: staffMembers = [], isLoading: isStaffLoading } = useStaffMembers();
 
   // Map IDs to names for the table
   const mappedTasks: ExtendedTask[] = React.useMemo(() => {
@@ -184,15 +184,14 @@ export function Tasks() {
     
     return rawTasks.results.map((task) => {
       const client = clients.find((c) => c.id === task.client);
-      const staff = staffMembers.find((s) => s.id === task.assigned_to);
 
       return {
         ...task,
         clientName: client?.businessName || `Client #${task.client}`,
-        assignedToName: staff?.fullName || `Staff #${task.assigned_to}`,
+        assignedToName: `Staff #${task.assigned_to}`,
       };
     });
-  }, [rawTasks, clients, staffMembers]);
+  }, [rawTasks, clients]);
 
   const table = useReactTable({
     data: mappedTasks,
@@ -223,10 +222,52 @@ export function Tasks() {
     }
   };
 
-  if (isTasksLoading || isClientsLoading || isStaffLoading) {
+  if (isTasksLoading || isClientsLoading) {
     return (
-      <div className="flex h-[calc(100vh-4rem)] items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      <div className="container max-w-full space-y-6 p-4 lg:p-6">
+        {/* Skeleton Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="space-y-2">
+            <Skeleton className="h-8 w-32" />
+            <Skeleton className="h-4 w-64" />
+          </div>
+          <Skeleton className="h-9 w-36" />
+        </div>
+
+        {/* Skeleton Toolbar */}
+        <div className="flex items-center justify-between">
+          <Skeleton className="h-9 w-40 lg:w-64" />
+          <div className="flex items-center gap-2">
+            <Skeleton className="h-9 w-20" />
+            <Skeleton className="h-9 w-28" />
+          </div>
+        </div>
+
+        {/* Skeleton Table */}
+        <div className="rounded-md border bg-card overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                {["Task ID", "Title", "Client", "Assigned To", "Type", "Priority", "Status", "Due Date", "Actions"].map((h) => (
+                  <TableHead key={h}>
+                    <Skeleton className="h-4 w-16" />
+                  </TableHead>
+                ))}
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {Array.from({ length: 6 }).map((_, i) => (
+                <TableRow key={i}>
+                  {Array.from({ length: 9 }).map((_, j) => (
+                    <TableCell key={j}>
+                      <Skeleton className="h-4 w-full" />
+                    </TableCell>
+                  ))}
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
       </div>
     );
   }

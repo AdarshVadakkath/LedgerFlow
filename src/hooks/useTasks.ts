@@ -7,9 +7,7 @@ import {
   replyToComment,
   updateComment,
   deleteComment,
-  getStaffMembers,
   getTasks,
-  type StaffMember,
 } from "@/lib/api/tasks";
 import type { CreateTaskInput, CreateSubtaskInput, CreateCommentInput, PaginatedTasksResponse } from "@/lib/validation/task";
 
@@ -127,19 +125,12 @@ export const useDeleteComment = () => {
   });
 };
 
-// ============= STAFF MEMBERS QUERY =============
-export const useStaffMembers = () => {
-  return useQuery<StaffMember[]>({
-    queryKey: ["staff-members"],
-    queryFn: getStaffMembers,
-    staleTime: 10 * 60 * 1000, // 10 minutes
-  });
-};
 
 // ============= TASKS LIST QUERY =============
 export const useTasksList = () => {
   return useQuery<PaginatedTasksResponse>({
     queryKey: ["tasks"],
     queryFn: getTasks,
+    staleTime: 5 * 60 * 1000, // 5 minutes – avoids re-fetch on every navigation
   });
 };

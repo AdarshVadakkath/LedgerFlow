@@ -36,7 +36,7 @@ import {
   AlertCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useCreateTask, useTasksList, useStaffMembers } from "@/hooks/useTasks";
+import { useCreateTask, useTasksList } from "@/hooks/useTasks";
 import { useClients } from "@/hooks/useClients";
 import { createTaskSchema } from "@/lib/validation/task";
 import type { TaskPriority, TaskType, TaskStatus } from "@/lib/validation/task";
@@ -80,7 +80,7 @@ export function NewTask({ open, onClose }: NewTaskModalProps) {
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const createTaskMutation = useCreateTask();
-  const { data: staffMembers = [], isLoading: staffLoading } = useStaffMembers();
+
   const { data: clientsList = [], isLoading: clientsLoading } = useClients();
   const { data: rawTasks, isLoading: tasksLoading } = useTasksList();
 
@@ -107,7 +107,7 @@ export function NewTask({ open, onClose }: NewTaskModalProps) {
       description,
       client: client ? Number(client) : 0,
       assigned_to: assignedTo ? Number(assignedTo) : 0,
-      deadline: dueDate ? dueDate.toISOString() : "",
+      deadline: dueDate ? format(dueDate, "yyyy-MM-dd") : "",
       status,
       type,
       priority,
@@ -335,38 +335,17 @@ export function NewTask({ open, onClose }: NewTaskModalProps) {
                   <Label htmlFor="assignedTo">
                     Assigned To <span className="text-destructive">*</span>
                   </Label>
-                  <Select
+                  <Input
+                    id="assignedTo"
+                    type="number"
+                    placeholder="Enter staff member ID"
                     value={assignedTo}
-                    onValueChange={(value) => setAssignedTo(value)}
-                  >
-                    <SelectTrigger
-                      id="assignedTo"
-                      className={cn(
-                        "h-10 w-full",
-                        errors.assigned_to && "border-destructive",
-                      )}
-                    >
-                      <SelectValue
-                        placeholder={
-                          staffLoading
-                            ? "Loading staff..."
-                            : "Select team member"
-                        }
-                      />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {staffMembers.map((member) => (
-                        <SelectItem key={member.id} value={String(member.id)}>
-                          <div className="flex items-center gap-2">
-                            <span>{member.fullName}</span>
-                            <span className="text-xs text-muted-foreground">
-                              ({member.role})
-                            </span>
-                          </div>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                    onChange={(e) => setAssignedTo(e.target.value)}
+                    className={cn(
+                      "h-10",
+                      errors.assigned_to && "border-destructive",
+                    )}
+                  />
                   {errors.assigned_to && (
                     <p className="text-xs text-destructive flex items-center gap-1">
                       <AlertCircle className="h-3 w-3" />
